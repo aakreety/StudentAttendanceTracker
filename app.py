@@ -1,9 +1,12 @@
 import tkinter as tk
 from tkinter import messagebox, ttk
-import db  # db.py contains DB connection and query functions
+import db
+from datetime import datetime  # Add this to handle date formatting
 
+attendance_tree = None  # Global Treeview reference
+
+# Function to mark attendance
 def mark_attendance(student_id, course_id, date, status):
-    """Handles marking the attendance for a student."""
     if student_id and course_id and date and status:
         result = db.insert_attendance(student_id, course_id, date, status)
         if result:
@@ -13,6 +16,7 @@ def mark_attendance(student_id, course_id, date, status):
     else:
         messagebox.showwarning("Input Error", "All fields are required.")
 
+# Function to add a new student
 def add_student(name, email, phone, department):
     if name and email and phone and department:
         result = db.insert_student(name, email, phone, department)
@@ -23,6 +27,7 @@ def add_student(name, email, phone, department):
     else:
         messagebox.showwarning("Input Error", "All fields are required.")
 
+# Function to get all students
 def get_students():
     conn = db.connect()
     cursor = conn.cursor()
@@ -31,6 +36,7 @@ def get_students():
     conn.close()
     return students
 
+# Function to get all courses
 def get_courses():
     conn = db.connect()
     cursor = conn.cursor()
@@ -39,15 +45,19 @@ def get_courses():
     conn.close()
     return courses
 
+# Function to display attendance for a specific course and date
 def display_attendance(course_id, date):
+    global attendance_tree
     records = db.fetch_attendance(course_id, date)
     for row in attendance_tree.get_children():
         attendance_tree.delete(row)
     for record in records:
         attendance_tree.insert("", "end", values=(record[0], record[1]))
 
+# Main function to create the GUI
 def main():
-    global attendance_tree  # So it can be accessed in display_attendance
+    global attendance_tree
+    print("Main function started")  # Debug line
 
     root = tk.Tk()
     root.title("Student Attendance Tracker")
@@ -83,8 +93,12 @@ def main():
     course_dropdown = ttk.Combobox(form_frame, values=course_names, width=30)
     course_dropdown.grid(row=1, column=1, padx=5, pady=5)
 
+    # Set the current date in YYYY-MM-DD format by default
+    current_date = datetime.now().strftime("%Y-%m-%d")
+
     tk.Label(form_frame, text="Date (YYYY-MM-DD):", bg="white").grid(row=2, column=0, padx=5, pady=5, sticky="e")
     date_entry = tk.Entry(form_frame, width=30)
+    date_entry.insert(0, current_date)  # Automatically set the current date
     date_entry.grid(row=2, column=1, padx=5, pady=5)
 
     tk.Label(form_frame, text="Status:", bg="white").grid(row=3, column=0, padx=5, pady=5, sticky="e")
@@ -146,5 +160,6 @@ def main():
 
     root.mainloop()
 
+# Run the application
 if __name__ == "__main__":
     main()
