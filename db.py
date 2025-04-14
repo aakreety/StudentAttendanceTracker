@@ -1,47 +1,42 @@
 import sqlite3
+from datetime import datetime
 
-# Function to connect to the database
+# Connect to DB
 def connect():
     return sqlite3.connect(r"C:\Users\aakri\OneDrive\Desktop\SQL Files\student_attendance.db")
 
-# Function to insert a student
+# Insert student
 def insert_student(name, email, phone, department):
     try:
         conn = connect()
         cursor = conn.cursor()
-        query = """
-        INSERT INTO Students (Name, Email, Phone, Major)
-        VALUES (?, ?, ?, ?)
-        """
-        cursor.execute(query, (name, email, phone, department))
+        cursor.execute("INSERT INTO Students (Name, Email, Phone, Major) VALUES (?, ?, ?, ?)", 
+                       (name, email, phone, department))
         conn.commit()
         conn.close()
         print("✅ Student inserted successfully.")
         return True
-    except sqlite3.Error as err:
-        print("Database error:", err)
+    except sqlite3.Error as e:
+        print("Database Error:", e)
         return False
 
-# Function to insert attendance
-def insert_attendance(student_id, course_id, date, status):
+# Insert attendance (date auto)
+def insert_attendance(student_id, course_id, status):
     try:
+        date = datetime.now().strftime('%Y-%m-%d')
         conn = connect()
         cursor = conn.cursor()
-        query = """
-        INSERT INTO Attendance (StudentID, CourseID, Date, Status)
-        VALUES (?, ?, ?, ?)
-        """
-        cursor.execute(query, (student_id, course_id, date, status))
+        cursor.execute("INSERT INTO Attendance (StudentID, CourseID, Date, Status) VALUES (?, ?, ?, ?)",
+                       (student_id, course_id, date, status))
         conn.commit()
         conn.close()
         return True
     except sqlite3.Error as e:
-        print(f"Database error: {e}")
+        print("Database Error:", e)
         return False
 
-# Function to fetch attendance for a specific course and date
+# Fetch attendance by course and date
 def fetch_attendance(course_id, date):
-    """Fetch attendance records for a specific course and date."""
     try:
         conn = connect()
         cursor = conn.cursor()
@@ -52,44 +47,35 @@ def fetch_attendance(course_id, date):
         WHERE Attendance.CourseID = ? AND Attendance.Date = ?
         """
         cursor.execute(query, (course_id, date))
-        records = cursor.fetchall()
+        result = cursor.fetchall()
         conn.close()
-        return records
+        return result
     except sqlite3.Error as e:
-        print(f"Database error: {e}")
+        print("Error:", e)
         return []
 
-# Function to get all courses
+# Get all courses
 def fetch_courses():
-    """Fetch all courses from the database."""
     try:
         conn = connect()
         cursor = conn.cursor()
-        query = "SELECT * FROM Courses"
-        cursor.execute(query)
+        cursor.execute("SELECT * FROM Courses")
         courses = cursor.fetchall()
         conn.close()
         return courses
     except sqlite3.Error as e:
-        print(f"Database error: {e}")
+        print("Error:", e)
         return []
 
-# Function to get students enrolled in a specific course
-def fetch_students_in_course(course_id):
-    """Fetch all students in a specific course."""
+# Get all students
+def fetch_all_students():
     try:
         conn = connect()
         cursor = conn.cursor()
-        query = """
-        SELECT Students.Name
-        FROM Attendance
-        JOIN Students ON Attendance.StudentID = Students.StudentID
-        WHERE Attendance.CourseID = ?
-        """
-        cursor.execute(query, (course_id,))
+        cursor.execute("SELECT StudentID, Name FROM Students")
         students = cursor.fetchall()
         conn.close()
         return students
     except sqlite3.Error as e:
-        print(f"Database error: {e}")
+        print("Error:", e)
         return []

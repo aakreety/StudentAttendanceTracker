@@ -1,165 +1,159 @@
 import tkinter as tk
-from tkinter import messagebox, ttk
+from tkinter import ttk, messagebox
+from datetime import datetime
 import db
-from datetime import datetime  # Add this to handle date formatting
+from tkcalendar import Calendar  # Import the Calendar module
 
-attendance_tree = None  # Global Treeview reference
+# Define theme colors
+BG_COLOR = "#f0f4f7"
+HEADER_COLOR = "#007acc"
+BUTTON_COLOR = "#00b894"
+TEXT_COLOR = "#2d3436"
+FONT = ("Segoe UI", 11)
 
-# Function to mark attendance
-def mark_attendance(student_id, course_id, date, status):
-    if student_id and course_id and date and status:
-        result = db.insert_attendance(student_id, course_id, date, status)
-        if result:
-            messagebox.showinfo("Success", "Attendance marked successfully!")
-        else:
-            messagebox.showerror("Error", "Failed to mark attendance.")
+root = tk.Tk()
+root.title("Student Attendance Tracker")
+root.geometry("800x600")
+root.configure(bg=BG_COLOR)
+
+style = ttk.Style()
+style.configure("TNotebook.Tab", font=("Segoe UI", 11, "bold"))
+
+notebook = ttk.Notebook(root)
+notebook.pack(fill="both", expand=True)
+
+# -------------------------- Add Student Tab --------------------------
+add_tab = tk.Frame(notebook, bg=BG_COLOR)
+notebook.add(add_tab, text="Add Student")
+
+header = tk.Label(add_tab, text="Add New Student", bg=HEADER_COLOR, fg="white", font=("Segoe UI", 14, "bold"))
+header.pack(pady=10, fill="x")
+
+form_frame = tk.Frame(add_tab, bg=BG_COLOR)
+form_frame.pack(pady=20)
+
+labels = ["Name", "Email", "Phone", "Department"]
+entries = {}
+
+for i, label in enumerate(labels):
+    tk.Label(form_frame, text=label, font=FONT, bg=BG_COLOR, fg=TEXT_COLOR).grid(row=i, column=0, padx=10, pady=10, sticky="w")
+    entry = tk.Entry(form_frame, font=FONT, width=40)
+    entry.grid(row=i, column=1, padx=10, pady=10)
+    entries[label.lower()] = entry
+
+def submit_student():
+    name = entries["name"].get().strip()
+    email = entries["email"].get().strip()
+    phone = entries["phone"].get().strip()
+    dept = entries["department"].get().strip()
+
+    if not all([name, email, phone, dept]):
+        messagebox.showerror("Input Error", "All fields are required.")
+        return
+
+    success = db.insert_student(name, email, phone, dept)
+    if success:
+        messagebox.showinfo("Success", "Student added successfully.")
+        for entry in entries.values():
+            entry.delete(0, tk.END)
     else:
-        messagebox.showwarning("Input Error", "All fields are required.")
+        messagebox.showerror("Error", "Failed to add student.")
 
-# Function to add a new student
-def add_student(name, email, phone, department):
-    if name and email and phone and department:
-        result = db.insert_student(name, email, phone, department)
-        if result:
-            messagebox.showinfo("Success", "Student added successfully!")
-        else:
-            messagebox.showerror("Error", "Failed to add student.")
+submit_btn = tk.Button(add_tab, text="Add Student", bg=BUTTON_COLOR, fg="white", font=FONT, command=submit_student)
+submit_btn.pack(pady=10)
+
+# -------------------------- Record Attendance Tab --------------------------
+attendance_tab = tk.Frame(notebook, bg=BG_COLOR)
+notebook.add(attendance_tab, text="Record Attendance")
+
+att_header = tk.Label(attendance_tab, text="Record Attendance", bg=HEADER_COLOR, fg="white", font=("Segoe UI", 14, "bold"))
+att_header.pack(pady=10, fill="x")
+
+att_form = tk.Frame(attendance_tab, bg=BG_COLOR)
+att_form.pack(pady=20)
+
+students = db.fetch_all_students()
+courses = db.fetch_courses()
+
+student_ids = {s[1]: s[0] for s in students}
+course_ids = {c[1]: c[0] for c in courses}
+
+student_names = list(student_ids.keys())
+course_names = list(course_ids.keys())
+
+tk.Label(att_form, text="Student", font=FONT, bg=BG_COLOR).grid(row=0, column=0, padx=10, pady=10)
+student_var = tk.StringVar()
+student_dropdown = ttk.Combobox(att_form, textvariable=student_var, values=student_names, font=FONT, width=30)
+student_dropdown.grid(row=0, column=1, padx=10, pady=10)
+
+tk.Label(att_form, text="Course", font=FONT, bg=BG_COLOR).grid(row=1, column=0, padx=10, pady=10)
+course_var = tk.StringVar()
+course_dropdown = ttk.Combobox(att_form, textvariable=course_var, values=course_names, font=FONT, width=30)
+course_dropdown.grid(row=1, column=1, padx=10, pady=10)
+
+tk.Label(att_form, text="Status", font=FONT, bg=BG_COLOR).grid(row=2, column=0, padx=10, pady=10)
+status_var = tk.StringVar()
+status_dropdown = ttk.Combobox(att_form, textvariable=status_var, values=["Present", "Absent"], font=FONT, width=30)
+status_dropdown.grid(row=2, column=1, padx=10, pady=10)
+
+def submit_attendance():
+    student = student_var.get()
+    course = course_var.get()
+    status = status_var.get()
+
+    if not all([student, course, status]):
+        messagebox.showerror("Input Error", "Please fill all fields.")
+        return
+
+    success = db.insert_attendance(student_ids[student], course_ids[course], status)
+    if success:
+        messagebox.showinfo("Success", "Attendance recorded.")
     else:
-        messagebox.showwarning("Input Error", "All fields are required.")
+        messagebox.showerror("Error", "Failed to record attendance.")
 
-# Function to get all students
-def get_students():
-    conn = db.connect()
-    cursor = conn.cursor()
-    cursor.execute("SELECT StudentID, Name FROM Students")
-    students = cursor.fetchall()
-    conn.close()
-    return students
+att_btn = tk.Button(attendance_tab, text="Record Attendance", bg=BUTTON_COLOR, fg="white", font=FONT, command=submit_attendance)
+att_btn.pack(pady=10)
 
-# Function to get all courses
-def get_courses():
-    conn = db.connect()
-    cursor = conn.cursor()
-    cursor.execute("SELECT CourseID, CourseName FROM Courses")
-    courses = cursor.fetchall()
-    conn.close()
-    return courses
+# -------------------------- View Attendance Tab --------------------------
+view_tab = tk.Frame(notebook, bg=BG_COLOR)
+notebook.add(view_tab, text="View Attendance")
 
-# Function to display attendance for a specific course and date
-def display_attendance(course_id, date):
-    global attendance_tree
-    records = db.fetch_attendance(course_id, date)
-    for row in attendance_tree.get_children():
-        attendance_tree.delete(row)
+view_header = tk.Label(view_tab, text="View Attendance Records", bg=HEADER_COLOR, fg="white", font=("Segoe UI", 14, "bold"))
+view_header.pack(pady=10, fill="x")
+
+view_frame = tk.Frame(view_tab, bg=BG_COLOR)
+view_frame.pack(pady=20)
+
+tk.Label(view_frame, text="Course", font=FONT, bg=BG_COLOR).grid(row=0, column=0, padx=10, pady=10)
+course_view_var = tk.StringVar()
+course_dropdown = ttk.Combobox(view_frame, textvariable=course_view_var, values=course_names, font=FONT, width=30)
+course_dropdown.grid(row=0, column=1, padx=10, pady=10)
+
+# Calendar widget for date selection
+tk.Label(view_frame, text="Select Date", font=FONT, bg=BG_COLOR).grid(row=1, column=0, padx=10, pady=10)
+cal = Calendar(view_frame, selectmode="day", date_pattern="yyyy-mm-dd", font=FONT)
+cal.grid(row=1, column=1, padx=10, pady=10)
+
+def view_attendance():
+    course = course_view_var.get()
+    date = cal.get_date()  # Get the selected date from the calendar
+
+    if not course or not date:
+        messagebox.showerror("Input Error", "Please provide course and date.")
+        return
+
+    records = db.fetch_attendance(course_ids[course], date)
+    for row in tree.get_children():
+        tree.delete(row)
     for record in records:
-        attendance_tree.insert("", "end", values=(record[0], record[1]))
+        tree.insert("", tk.END, values=record)
 
-# Main function to create the GUI
-def main():
-    global attendance_tree
-    print("Main function started")  # Debug line
+tree = ttk.Treeview(view_tab, columns=("Name", "Status"), show="headings")
+tree.heading("Name", text="Student Name")
+tree.heading("Status", text="Status")
+tree.pack(pady=20)
 
-    root = tk.Tk()
-    root.title("Student Attendance Tracker")
-    root.geometry("800x700")
-    root.configure(bg="white")
+view_btn = tk.Button(view_tab, text="Fetch Records", bg=BUTTON_COLOR, fg="white", font=FONT, command=view_attendance)
+view_btn.pack()
 
-    top_frame = tk.Frame(root, height=60, bg="#4CAF50")
-    top_frame.pack(fill="x")
-
-    title = tk.Label(top_frame, text="Student Attendance Tracker", font=("Helvetica", 18, "bold"), bg="#4CAF50", fg="white")
-    title.pack(pady=10)
-
-    main_frame = tk.Frame(root, bg="white")
-    main_frame.pack(fill="both", expand=True)
-
-    # === Attendance Section ===
-    form_frame = tk.LabelFrame(main_frame, text="Mark Attendance", font=("Arial", 12), bg="white", padx=10, pady=10)
-    form_frame.pack(pady=10, fill="x")
-
-    students = get_students()
-    student_names = [s[1] for s in students]
-    student_id_map = {s[1]: s[0] for s in students}
-
-    courses = get_courses()
-    course_names = [c[1] for c in courses]
-    course_id_map = {c[1]: c[0] for c in courses}
-
-    tk.Label(form_frame, text="Student:", bg="white").grid(row=0, column=0, padx=5, pady=5, sticky="e")
-    student_dropdown = ttk.Combobox(form_frame, values=student_names, width=30)
-    student_dropdown.grid(row=0, column=1, padx=5, pady=5)
-
-    tk.Label(form_frame, text="Course:", bg="white").grid(row=1, column=0, padx=5, pady=5, sticky="e")
-    course_dropdown = ttk.Combobox(form_frame, values=course_names, width=30)
-    course_dropdown.grid(row=1, column=1, padx=5, pady=5)
-
-    # Set the current date in YYYY-MM-DD format by default
-    current_date = datetime.now().strftime("%Y-%m-%d")
-
-    tk.Label(form_frame, text="Date (YYYY-MM-DD):", bg="white").grid(row=2, column=0, padx=5, pady=5, sticky="e")
-    date_entry = tk.Entry(form_frame, width=30)
-    date_entry.insert(0, current_date)  # Automatically set the current date
-    date_entry.grid(row=2, column=1, padx=5, pady=5)
-
-    tk.Label(form_frame, text="Status:", bg="white").grid(row=3, column=0, padx=5, pady=5, sticky="e")
-    status_dropdown = ttk.Combobox(form_frame, values=["Present", "Absent", "Late"], width=30)
-    status_dropdown.grid(row=3, column=1, padx=5, pady=5)
-
-    tk.Button(form_frame, text="Mark Attendance", bg="#4CAF50", fg="white",
-              command=lambda: mark_attendance(
-                  student_id_map.get(student_dropdown.get()),
-                  course_id_map.get(course_dropdown.get()),
-                  date_entry.get(),
-                  status_dropdown.get())).grid(row=4, column=1, pady=10)
-
-    # === Attendance Viewer ===
-    view_frame = tk.LabelFrame(main_frame, text="View Attendance", font=("Arial", 12), bg="white", padx=10, pady=10)
-    view_frame.pack(pady=10, fill="x")
-
-    tk.Label(view_frame, text="Course:", bg="white").grid(row=0, column=0, padx=5, pady=5, sticky="e")
-    course_view_dropdown = ttk.Combobox(view_frame, values=course_names, width=30)
-    course_view_dropdown.grid(row=0, column=1, padx=5, pady=5)
-
-    tk.Label(view_frame, text="Date (YYYY-MM-DD):", bg="white").grid(row=1, column=0, padx=5, pady=5, sticky="e")
-    date_view_entry = tk.Entry(view_frame, width=30)
-    date_view_entry.grid(row=1, column=1, padx=5, pady=5)
-
-    tk.Button(view_frame, text="View Attendance", bg="#4CAF50", fg="white",
-              command=lambda: display_attendance(
-                  course_id_map.get(course_view_dropdown.get()),
-                  date_view_entry.get())).grid(row=2, column=1, pady=10)
-
-    columns = ("Student Name", "Status")
-    attendance_tree = ttk.Treeview(main_frame, columns=columns, show="headings")
-    attendance_tree.heading("Student Name", text="Student Name")
-    attendance_tree.heading("Status", text="Status")
-    attendance_tree.pack(pady=10, fill="x")
-
-    # === Student Form ===
-    student_frame = tk.LabelFrame(main_frame, text="Add New Student", font=("Arial", 12), bg="white", padx=10, pady=10)
-    student_frame.pack(pady=10, fill="x")
-
-    tk.Label(student_frame, text="Name:", bg="white").grid(row=0, column=0, padx=5, pady=5, sticky="e")
-    name_entry = tk.Entry(student_frame, width=30)
-    name_entry.grid(row=0, column=1, padx=5, pady=5)
-
-    tk.Label(student_frame, text="Email:", bg="white").grid(row=1, column=0, padx=5, pady=5, sticky="e")
-    email_entry = tk.Entry(student_frame, width=30)
-    email_entry.grid(row=1, column=1, padx=5, pady=5)
-
-    tk.Label(student_frame, text="Phone:", bg="white").grid(row=2, column=0, padx=5, pady=5, sticky="e")
-    phone_entry = tk.Entry(student_frame, width=30)
-    phone_entry.grid(row=2, column=1, padx=5, pady=5)
-
-    tk.Label(student_frame, text="Department:", bg="white").grid(row=3, column=0, padx=5, pady=5, sticky="e")
-    dept_entry = tk.Entry(student_frame, width=30)
-    dept_entry.grid(row=3, column=1, padx=5, pady=5)
-
-    tk.Button(student_frame, text="Add Student", bg="#4CAF50", fg="white",
-              command=lambda: add_student(name_entry.get(), email_entry.get(), phone_entry.get(), dept_entry.get())).grid(row=4, column=1, pady=10)
-
-    root.mainloop()
-
-# Run the application
-if __name__ == "__main__":
-    main()
+root.mainloop()
