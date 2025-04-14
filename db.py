@@ -2,7 +2,7 @@ import sqlite3
 
 # Function to connect to the database
 def connect():
-    return sqlite3.connect(r'C:\Users\aakri\OneDrive\Desktop\SQL Files\student_attendance.db')
+    return sqlite3.connect(r"C:\Users\aakri\OneDrive\Desktop\SQL Files\student_attendance.db")
 
 # Function to insert a student
 def insert_student(name, email, phone, department):
@@ -16,9 +16,10 @@ def insert_student(name, email, phone, department):
         cursor.execute(query, (name, email, phone, department))
         conn.commit()
         conn.close()
+        print("✅ Student inserted successfully.")
         return True
-    except sqlite3.Error as e:
-        print(f"Database error: {e}")
+    except sqlite3.Error as err:
+        print("Database error:", err)
         return False
 
 # Function to insert attendance
