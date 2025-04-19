@@ -1,159 +1,126 @@
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import ttk, messagebox, simpledialog
+from PIL import Image, ImageTk
+import sqlite3
 from datetime import datetime
-import db
-from tkcalendar import Calendar  # Import the Calendar module
 
-# Define theme colors
-BG_COLOR = "#f0f4f7"
-HEADER_COLOR = "#007acc"
-BUTTON_COLOR = "#00b894"
-TEXT_COLOR = "#2d3436"
-FONT = ("Segoe UI", 11)
+# === Database Setup ===
+conn = sqlite3.connect('attendance.db')
+cursor = conn.cursor()
+cursor.execute('''CREATE TABLE IF NOT EXISTS students (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE)''')
+cursor.execute('''CREATE TABLE IF NOT EXISTS attendance (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    student_id INTEGER,
+    date TEXT,
+    status TEXT,
+    FOREIGN KEY(student_id) REFERENCES students(id)
+)''')
+conn.commit()
 
-root = tk.Tk()
-root.title("Student Attendance Tracker")
-root.geometry("800x600")
-root.configure(bg=BG_COLOR)
+class StylishAttendanceApp:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("📝 Student Attendance Tracker")
+        self.root.geometry("900x600")
+        self.root.resizable(False, False)
 
-style = ttk.Style()
-style.configure("TNotebook.Tab", font=("Segoe UI", 11, "bold"))
+        # === Load and set background image ===
+        self.bg_img = Image.open("background.jpg")  # Use a modern light theme image here
+        self.bg_img = self.bg_img.resize((900, 600))
+        self.bg_photo = ImageTk.PhotoImage(self.bg_img)
 
-notebook = ttk.Notebook(root)
-notebook.pack(fill="both", expand=True)
+        self.bg_label = tk.Label(self.root, image=self.bg_photo)
+        self.bg_label.place(x=0, y=0, relwidth=1, relheight=1)
 
-# -------------------------- Add Student Tab --------------------------
-add_tab = tk.Frame(notebook, bg=BG_COLOR)
-notebook.add(add_tab, text="Add Student")
+        # === Top Header ===
+        self.header_frame = tk.Frame(self.root, bg="#003366", height=60)
+        self.header_frame.pack(fill="x")
+        self.title = tk.Label(self.header_frame, text="📚  Attendance Tracker", fg="white", bg="#003366",
+                              font=("Helvetica", 18, "bold"))
+        self.title.pack(pady=10, padx=20, anchor="w")
 
-header = tk.Label(add_tab, text="Add New Student", bg=HEADER_COLOR, fg="white", font=("Segoe UI", 14, "bold"))
-header.pack(pady=10, fill="x")
+        # === Menu ===
+        self.menu_frame = tk.Frame(self.root, bg="#f7f7f7", width=180)
+        self.menu_frame.pack(side="left", fill="y")
 
-form_frame = tk.Frame(add_tab, bg=BG_COLOR)
-form_frame.pack(pady=20)
+        self.btn_style = {"font": ("Segoe UI", 10, "bold"), "bg": "#ffffff", "fg": "#003366", "bd": 0, "activebackground": "#e6f0ff"}
 
-labels = ["Name", "Email", "Phone", "Department"]
-entries = {}
+        tk.Button(self.menu_frame, text="➕ Add Student", command=self.add_student, **self.btn_style).pack(fill="x", pady=5, padx=10)
+        tk.Button(self.menu_frame, text="✅ Mark Present", command=lambda: self.mark_attendance("Present"), **self.btn_style).pack(fill="x", pady=5, padx=10)
+        tk.Button(self.menu_frame, text="❌ Mark Absent", command=lambda: self.mark_attendance("Absent"), **self.btn_style).pack(fill="x", pady=5, padx=10)
+        tk.Button(self.menu_frame, text="📄 View Attendance", command=self.view_attendance, **self.btn_style).pack(fill="x", pady=5, padx=10)
 
-for i, label in enumerate(labels):
-    tk.Label(form_frame, text=label, font=FONT, bg=BG_COLOR, fg=TEXT_COLOR).grid(row=i, column=0, padx=10, pady=10, sticky="w")
-    entry = tk.Entry(form_frame, font=FONT, width=40)
-    entry.grid(row=i, column=1, padx=10, pady=10)
-    entries[label.lower()] = entry
+        # === Student list ===
+        self.content_frame = tk.Frame(self.root, bg="white")
+        self.content_frame.place(x=200, y=80, width=680, height=480)
 
-def submit_student():
-    name = entries["name"].get().strip()
-    email = entries["email"].get().strip()
-    phone = entries["phone"].get().strip()
-    dept = entries["department"].get().strip()
+        self.student_listbox = tk.Listbox(self.content_frame, width=40, height=20, font=("Segoe UI", 12))
+        self.student_listbox.pack(side="left", padx=20, pady=20)
+        self.scrollbar = ttk.Scrollbar(self.content_frame, orient="vertical", command=self.student_listbox.yview)
+        self.scrollbar.pack(side="left", fill="y", pady=20)
+        self.student_listbox.config(yscrollcommand=self.scrollbar.set)
 
-    if not all([name, email, phone, dept]):
-        messagebox.showerror("Input Error", "All fields are required.")
-        return
+        self.load_students()
 
-    success = db.insert_student(name, email, phone, dept)
-    if success:
-        messagebox.showinfo("Success", "Student added successfully.")
-        for entry in entries.values():
-            entry.delete(0, tk.END)
-    else:
-        messagebox.showerror("Error", "Failed to add student.")
+        # === Footer ===
+        self.footer = tk.Label(self.root, text="© 2025 Akriti Neupane | All rights reserved", bg="#003366", fg="white", font=("Segoe UI", 9))
+        self.footer.pack(side="bottom", fill="x")
 
-submit_btn = tk.Button(add_tab, text="Add Student", bg=BUTTON_COLOR, fg="white", font=FONT, command=submit_student)
-submit_btn.pack(pady=10)
+    def load_students(self):
+        self.student_listbox.delete(0, tk.END)
+        cursor.execute("SELECT name FROM students ORDER BY name")
+        for student in cursor.fetchall():
+            self.student_listbox.insert(tk.END, student[0])
 
-# -------------------------- Record Attendance Tab --------------------------
-attendance_tab = tk.Frame(notebook, bg=BG_COLOR)
-notebook.add(attendance_tab, text="Record Attendance")
+    def add_student(self):
+        name = simpledialog.askstring("Add Student", "Enter student name:")
+        if name:
+            try:
+                cursor.execute("INSERT INTO students (name) VALUES (?)", (name,))
+                conn.commit()
+                self.load_students()
+                messagebox.showinfo("Success", f"{name} added.")
+            except sqlite3.IntegrityError:
+                messagebox.showwarning("Duplicate", f"{name} already exists.")
 
-att_header = tk.Label(attendance_tab, text="Record Attendance", bg=HEADER_COLOR, fg="white", font=("Segoe UI", 14, "bold"))
-att_header.pack(pady=10, fill="x")
+    def mark_attendance(self, status):
+        selected = self.student_listbox.curselection()
+        if not selected:
+            messagebox.showwarning("No Selection", "Please select a student.")
+            return
+        name = self.student_listbox.get(selected)
+        date = datetime.now().strftime("%Y-%m-%d")
+        cursor.execute("SELECT id FROM students WHERE name = ?", (name,))
+        student_id = cursor.fetchone()[0]
+        cursor.execute("SELECT * FROM attendance WHERE student_id = ? AND date = ?", (student_id, date))
+        if cursor.fetchone():
+            messagebox.showinfo("Already Marked", f"Attendance already marked today.")
+        else:
+            cursor.execute("INSERT INTO attendance (student_id, date, status) VALUES (?, ?, ?)", (student_id, date, status))
+            conn.commit()
+            messagebox.showinfo("Marked", f"{status} marked for {name}.")
 
-att_form = tk.Frame(attendance_tab, bg=BG_COLOR)
-att_form.pack(pady=20)
+    def view_attendance(self):
+        top = tk.Toplevel(self.root)
+        top.title("📄 Attendance Records")
+        top.geometry("600x400")
 
-students = db.fetch_all_students()
-courses = db.fetch_courses()
+        tree = ttk.Treeview(top, columns=("name", "date", "status"), show="headings")
+        tree.heading("name", text="Name")
+        tree.heading("date", text="Date")
+        tree.heading("status", text="Status")
+        tree.pack(fill="both", expand=True)
 
-student_ids = {s[1]: s[0] for s in students}
-course_ids = {c[1]: c[0] for c in courses}
+        cursor.execute('''
+            SELECT students.name, attendance.date, attendance.status
+            FROM attendance
+            JOIN students ON attendance.student_id = students.id
+            ORDER BY attendance.date DESC
+        ''')
+        for row in cursor.fetchall():
+            tree.insert("", tk.END, values=row)
 
-student_names = list(student_ids.keys())
-course_names = list(course_ids.keys())
-
-tk.Label(att_form, text="Student", font=FONT, bg=BG_COLOR).grid(row=0, column=0, padx=10, pady=10)
-student_var = tk.StringVar()
-student_dropdown = ttk.Combobox(att_form, textvariable=student_var, values=student_names, font=FONT, width=30)
-student_dropdown.grid(row=0, column=1, padx=10, pady=10)
-
-tk.Label(att_form, text="Course", font=FONT, bg=BG_COLOR).grid(row=1, column=0, padx=10, pady=10)
-course_var = tk.StringVar()
-course_dropdown = ttk.Combobox(att_form, textvariable=course_var, values=course_names, font=FONT, width=30)
-course_dropdown.grid(row=1, column=1, padx=10, pady=10)
-
-tk.Label(att_form, text="Status", font=FONT, bg=BG_COLOR).grid(row=2, column=0, padx=10, pady=10)
-status_var = tk.StringVar()
-status_dropdown = ttk.Combobox(att_form, textvariable=status_var, values=["Present", "Absent"], font=FONT, width=30)
-status_dropdown.grid(row=2, column=1, padx=10, pady=10)
-
-def submit_attendance():
-    student = student_var.get()
-    course = course_var.get()
-    status = status_var.get()
-
-    if not all([student, course, status]):
-        messagebox.showerror("Input Error", "Please fill all fields.")
-        return
-
-    success = db.insert_attendance(student_ids[student], course_ids[course], status)
-    if success:
-        messagebox.showinfo("Success", "Attendance recorded.")
-    else:
-        messagebox.showerror("Error", "Failed to record attendance.")
-
-att_btn = tk.Button(attendance_tab, text="Record Attendance", bg=BUTTON_COLOR, fg="white", font=FONT, command=submit_attendance)
-att_btn.pack(pady=10)
-
-# -------------------------- View Attendance Tab --------------------------
-view_tab = tk.Frame(notebook, bg=BG_COLOR)
-notebook.add(view_tab, text="View Attendance")
-
-view_header = tk.Label(view_tab, text="View Attendance Records", bg=HEADER_COLOR, fg="white", font=("Segoe UI", 14, "bold"))
-view_header.pack(pady=10, fill="x")
-
-view_frame = tk.Frame(view_tab, bg=BG_COLOR)
-view_frame.pack(pady=20)
-
-tk.Label(view_frame, text="Course", font=FONT, bg=BG_COLOR).grid(row=0, column=0, padx=10, pady=10)
-course_view_var = tk.StringVar()
-course_dropdown = ttk.Combobox(view_frame, textvariable=course_view_var, values=course_names, font=FONT, width=30)
-course_dropdown.grid(row=0, column=1, padx=10, pady=10)
-
-# Calendar widget for date selection
-tk.Label(view_frame, text="Select Date", font=FONT, bg=BG_COLOR).grid(row=1, column=0, padx=10, pady=10)
-cal = Calendar(view_frame, selectmode="day", date_pattern="yyyy-mm-dd", font=FONT)
-cal.grid(row=1, column=1, padx=10, pady=10)
-
-def view_attendance():
-    course = course_view_var.get()
-    date = cal.get_date()  # Get the selected date from the calendar
-
-    if not course or not date:
-        messagebox.showerror("Input Error", "Please provide course and date.")
-        return
-
-    records = db.fetch_attendance(course_ids[course], date)
-    for row in tree.get_children():
-        tree.delete(row)
-    for record in records:
-        tree.insert("", tk.END, values=record)
-
-tree = ttk.Treeview(view_tab, columns=("Name", "Status"), show="headings")
-tree.heading("Name", text="Student Name")
-tree.heading("Status", text="Status")
-tree.pack(pady=20)
-
-view_btn = tk.Button(view_tab, text="Fetch Records", bg=BUTTON_COLOR, fg="white", font=FONT, command=view_attendance)
-view_btn.pack()
-
-root.mainloop()
+if __name__ == "__main__":
+    root = tk.Tk()
+    app = StylishAttendanceApp(root)
+    root.mainloop()
