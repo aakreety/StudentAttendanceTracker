@@ -145,25 +145,26 @@ class AttendanceApp:
             conn.close()
 
     def mark_attendance(self, status):
-        selected = self.tree.focus()
-        if selected:
-            student_id = selected
-            today = date.today().isoformat()
-            conn = sqlite3.connect("attendance.db")
-            c = conn.cursor()
-            # Check for duplicate entry
-            c.execute("SELECT 1 FROM attendance WHERE student_id=? AND date=?", (student_id, today))
-            if c.fetchone():
-                messagebox.showwarning("Duplicate", "Attendance already marked for today.")
-                conn.close()
-                return
-            c.execute("INSERT INTO attendance (student_id, date, status) VALUES (?, ?, ?)",
-                      (student_id, today, status))
-            conn.commit()
-            conn.close()
-            messagebox.showinfo("Marked", f"Marked as {status}")
+    selected = self.tree.focus()
+    if selected:
+        student_id = selected
+        input_date = self.date_var.get().strip()
+        mark_date = input_date if input_date else date.today().isoformat()
+
+        conn = sqlite3.connect("attendance.db")
+        c = conn.cursor()
+        c.execute("SELECT 1 FROM attendance WHERE student_id = ? AND date = ?", (student_id, mark_date))
+        if c.fetchone():
+            messagebox.showwarning("Duplicate Entry", f"Attendance already marked for {mark_date}.")
         else:
-            messagebox.showwarning("Selection Error", "Please select a student.")
+            c.execute("INSERT INTO attendance (student_id, date, status) VALUES (?, ?, ?)",
+                      (student_id, mark_date, status))
+            conn.commit()
+            messagebox.showinfo("Marked", f"Marked as {status} on {mark_date}")
+        conn.close()
+    else:
+        messagebox.showwarning("Selection Error", "Please select a student.")
+
 
     def view_attendance(self):
         self.create_table_window("📋 All Attendance", """SELECT s.name, a.date, a.status
