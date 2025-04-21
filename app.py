@@ -31,7 +31,7 @@ def init_db():
 class AttendanceApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("📘 Stylish Attendance Tracker")
+        self.root.title("Student Attendance Tracker")
         self.root.geometry("980x600")
         self.root.configure(bg=BG_COLOR)
         self.root.resizable(False, False)
@@ -145,25 +145,25 @@ class AttendanceApp:
             conn.close()
 
     def mark_attendance(self, status):
-    selected = self.tree.focus()
-    if selected:
-        student_id = selected
-        input_date = self.date_var.get().strip()
-        mark_date = input_date if input_date else date.today().isoformat()
+        selected = self.tree.focus()
+        if selected:
+            student_id = selected
+            input_date = self.date_var.get().strip()
+            mark_date = input_date if input_date else date.today().isoformat()
 
-        conn = sqlite3.connect("attendance.db")
-        c = conn.cursor()
-        c.execute("SELECT 1 FROM attendance WHERE student_id = ? AND date = ?", (student_id, mark_date))
-        if c.fetchone():
-            messagebox.showwarning("Duplicate Entry", f"Attendance already marked for {mark_date}.")
+            conn = sqlite3.connect("attendance.db")
+            c = conn.cursor()
+            c.execute("SELECT 1 FROM attendance WHERE student_id = ? AND date = ?", (student_id, mark_date))
+            if c.fetchone():
+                messagebox.showwarning("Duplicate Entry", f"Attendance already marked for {mark_date}.")
+            else:
+                c.execute("INSERT INTO attendance (student_id, date, status) VALUES (?, ?, ?)",
+                        (student_id, mark_date, status))
+                conn.commit()
+                messagebox.showinfo("Marked", f"Marked as {status} on {mark_date}")
+            conn.close()
         else:
-            c.execute("INSERT INTO attendance (student_id, date, status) VALUES (?, ?, ?)",
-                      (student_id, mark_date, status))
-            conn.commit()
-            messagebox.showinfo("Marked", f"Marked as {status} on {mark_date}")
-        conn.close()
-    else:
-        messagebox.showwarning("Selection Error", "Please select a student.")
+            messagebox.showwarning("Selection Error", "Please select a student.")
 
 
     def view_attendance(self):
