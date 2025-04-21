@@ -17,7 +17,14 @@ def init_db():
     conn = sqlite3.connect("attendance.db")
     c = conn.cursor()
     c.execute("CREATE TABLE IF NOT EXISTS students (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL)")
-    c.execute("CREATE TABLE IF NOT EXISTS attendance (student_id INTEGER, date TEXT, status TEXT)")
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS attendance (
+            student_id INTEGER,
+            date TEXT,
+            status TEXT,
+            UNIQUE(student_id, date)
+        )
+    """)
     conn.commit()
     conn.close()
 
@@ -144,6 +151,12 @@ class AttendanceApp:
             today = date.today().isoformat()
             conn = sqlite3.connect("attendance.db")
             c = conn.cursor()
+            # Check for duplicate entry
+            c.execute("SELECT 1 FROM attendance WHERE student_id=? AND date=?", (student_id, today))
+            if c.fetchone():
+                messagebox.showwarning("Duplicate", "Attendance already marked for today.")
+                conn.close()
+                return
             c.execute("INSERT INTO attendance (student_id, date, status) VALUES (?, ?, ?)",
                       (student_id, today, status))
             conn.commit()
