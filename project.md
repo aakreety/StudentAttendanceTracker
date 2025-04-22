@@ -4,9 +4,9 @@
 [GitHub Link](https://github.com/aakreety/StudentAttendanceTracker)
 
 ## Demo Video
-[YouTube Link]
+[YouTube Link] ( https://youtu.be/2ISd1dJqcO4 )
 
-## roject Summary
+## Project Summary
 
 This is a GUI-based **Student Attendance Tracker** system built using **Python (Tkinter)** and **SQLite**.
 
@@ -18,7 +18,7 @@ This is a GUI-based **Student Attendance Tracker** system built using **Python (
 - Uses **foreign key-like logic** by storing `student_id` in attendance.
 - Prevents duplicate attendance records using `UNIQUE(student_id, date)`.
 
-###  App Features
+### App Features
 - Add, delete, and search students.
 - Mark **Present** / **Absent** with auto or custom date.
 - View all attendance records.
@@ -32,4 +32,3 @@ This is a GUI-based **Student Attendance Tracker** system built using **Python (
 - SQLite
 - Tkinter
 - ttk Treeview and modern custom styling
-
